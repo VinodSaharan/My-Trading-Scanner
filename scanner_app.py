@@ -58,9 +58,10 @@ if st.button("🚀 लाइव स्कैन शुरू करें"):
             curr = df.iloc[-1]
             prev = df.iloc[-2]
             
-            # float() में बदलकर एरर की संभावना खत्म की
-            p_e9, p_e21 = float(prev['EMA9']), float(prev['EMA21'])
-            c_e9, c_e21 = float(curr['EMA9']), float(curr['EMA21'])
+          p_e9 = float(prev['EMA9'].iloc[0]) if hasattr(prev['EMA9'], 'iloc') else float(prev['EMA9'])
+            p_e21 = float(prev['EMA21'].iloc[0]) if hasattr(prev['EMA21'], 'iloc') else float(prev['EMA21'])
+            c_e9 = float(curr['EMA9'].iloc[0]) if hasattr(curr['EMA9'], 'iloc') else float(curr['EMA9'])
+            c_e21 = float(curr['EMA21'].iloc[0]) if hasattr(curr['EMA21'], 'iloc') else float(curr['EMA21'])
             
             signal = "⚪ WAIT"
             if p_e9 <= p_e21 and c_e9 > c_e21: signal = "🟢 BUY"
