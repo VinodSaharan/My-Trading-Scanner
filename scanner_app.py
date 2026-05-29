@@ -11,7 +11,7 @@ st.title("🎯 Professional Cloud Trading Scanner")
 @st.cache_data(ttl=600) # डेटा हर 10 मिनट में रिफ्रेश होगा
 def get_stocks():
     # यहाँ अपना पब्लिश किया हुआ CSV लिंक पेस्ट करें
-    url = https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?gid=0&single=true&output=csv
+    url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?gid=0&single=true&output=csv"
     "यहाँ_अपना_Google_Sheet_का_पब्लिश_CSV_लिंक_डाले"
     try:
         df = pd.read_csv(url)
