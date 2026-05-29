@@ -3,8 +3,7 @@ import yfinance as yf
 import pandas as pd
 
 st.set_page_config(page_title="Intrabullscanner22", layout="wide")
-
-st.title("📈 Intrabullscanner22 | Pro Terminal")
+st.title("📈 Intrabullscanner22 | Lite Mode")
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
@@ -12,60 +11,47 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT
 def get_symbols():
     try:
         df = pd.read_csv(SHEET_URL, header=None)
-        stocks = df.iloc[:, 0].dropna().astype(str).tolist()
-        return [s.strip() if '.NS' in s else s.strip() + '.NS' for s in stocks]
+        return df.iloc[:, 0].dropna().astype(str).tolist()
     except:
         return ['RELIANCE.NS', 'TCS.NS']
 
 def get_data(symbol):
     try:
+        # केवल 5 दिन का डेटा - बहुत हल्का
         df = yf.download(symbol, period="5d", interval="15m", progress=False)
-        if df.empty or len(df) < 21: return None
+        if len(df) < 21: return None
         
+        # सिर्फ EMA कैलकुलेशन
         df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
         df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        df['RSI'] = 100 - (100 / (1 + (gain / (loss + 0.0001))))
-        return df.fillna(0)
+        return df.iloc[-2:] # सिर्फ आखिरी 2 रो चाहिए
     except:
         return None
 
-if st.button("🚀 लाइव स्कैन शुरू करें"):
+if st.button("🚀 स्कैन शुरू करें"):
     symbols = get_symbols()
     results = []
     
-    with st.spinner('डेटा एनालाइज हो रहा है...'):
+    with st.spinner('स्कैनिंग...'):
         for symbol in symbols:
             df = get_data(symbol)
             if df is None: continue
             
-            # .iloc[-1] का उपयोग करके पक्की वैल्यू निकालें
-            c_close = float(df['Close'].iloc[-1])
-            c_ema9 = float(df['EMA9'].iloc[-1])
-            c_ema21 = float(df['EMA21'].iloc[-1])
-            p_ema9 = float(df['EMA9'].iloc[-2])
-            p_ema21 = float(df['EMA21'].iloc[-2])
-            rsi_val = float(df['RSI'].iloc[-1])
-            
-            signal = "⚪ WAIT"
-            if p_ema9 <= p_ema21 and c_ema9 > c_ema21: signal = "🟢 BUY"
-            elif p_ema9 >= p_ema21 and c_ema9 < c_ema21: signal = "🔴 SELL"
-            
-            results.append({
-                'Stock': symbol, 
-                'Signal': signal, 
-                'Price': round(c_close, 2), 
-                'RSI': round(rsi_val, 2)
-            })
+            # सुरक्षित वैल्यू एक्सट्रैक्शन
+            try:
+                p_e9, p_e21 = float(df['EMA9'].iloc[0]), float(df['EMA21'].iloc[0])
+                c_e9, c_e21 = float(df['EMA9'].iloc[1]), float(df['EMA21'].iloc[1])
+                price = float(df['Close'].iloc[1])
+                
+                signal = "⚪"
+                if p_e9 <= p_e21 and c_e9 > c_e21: signal = "🟢 BUY"
+                elif p_e9 >= p_e21 and c_e9 < c_e21: signal = "🔴 SELL"
+                
+                if signal != "⚪":
+                    results.append({'Stock': symbol, 'Signal': signal, 'Price': round(price, 2)})
+            except: continue
         
         if results:
-            res_df = pd.DataFrame(results)
-            def style_table(val):
-                color = 'green' if val == '🟢 BUY' else 'red' if val == '🔴 SELL' else 'black'
-                return f'color: {color}; font-weight: bold; font-size: 18px;'
-            
-            st.dataframe(res_df.style.map(style_table, subset=['Signal']), use_container_width=True)
+            st.dataframe(pd.DataFrame(results), use_container_width=True)
         else:
-            st.warning("कोई डेटा नहीं मिला।")
+            st.write("अभी कोई सिग्नल नहीं मिला।")
