@@ -15,7 +15,7 @@ st.markdown("""
 st.title("📈 Intrabullscanner22 | Pro Terminal")
 
 # Google Sheet लिंक
-SHEET_URL= https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
+SHEET_URL= "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
 @st.cache_data(ttl=600)
 def get_symbols():
