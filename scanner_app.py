@@ -22,7 +22,7 @@ def scan_stocks(symbols):
         clean_symbol = symbol.strip()
         try:
             # सर्वर लोड कम करने के लिए पॉज़
-            time.sleep(1.0) 
+            time.sleep(3.0) 
             
             hist = yf.download(clean_symbol, period="5d", interval="15m", progress=False)
             
