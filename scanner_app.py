@@ -1,6 +1,6 @@
 import streamlit as st
 import yfinance as yf
-import pandas_ta as ta
+# import pandas_ta as ta
 import pandas as pd
 
 # 1. पेज सेटअप
