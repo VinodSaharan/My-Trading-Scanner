@@ -1,4 +1,4 @@
 streamlit
 yfinance
 pandas==2.0.0
-pandas-ta
+# pandas-ta
