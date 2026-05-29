@@ -6,7 +6,7 @@ import time
 st.set_page_config(page_title="Intrabullscanner22", layout="wide")
 st.title("📈 Intrabullscanner22 | Robust Version")
 
-SHEET_URL = "YOUR_GOOGLE_SHEET_URL_HERE"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
 def scan_stocks(symbols):
     results = []
