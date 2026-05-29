@@ -3,77 +3,55 @@ import yfinance as yf
 import pandas as pd
 
 # 1. पेज सेटअप
-st.set_page_config(page_title="प्रो स्टॉक स्कैनर", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Intrabullscanner22", layout="wide")
+st.title("📈 Intrabullscanner22 | Master Terminal")
 
-# 2. स्टाइलिश CSS
-st.markdown("""
-<style>
-    .stButton>button {width: 100%; border-radius: 10px; background-color: #2E86C1; color: white; font-weight: bold;}
-    h1 {color: #2E86C1; text-align: center;}
-</style>
-""", unsafe_allow_html=True)
+# 2. यहाँ अपनी Google Sheet का CSV लिंक डालें (जो आपने पब्लिश किया है)
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pubhtml" 
 
-st.title("🚀 प्रो स्टॉक स्कैनर")
+@st.cache_data(ttl=600)
+def get_symbols():
+    try:
+        df = pd.read_csv(SHEET_URL)
+        return df['Symbol'].tolist()
+    except:
+        return ['RELIANCE.NS', 'TCS.NS', 'INFY.NS', 'HDFCBANK.NS'] # Default List
 
-# 3. डेटा लोडिंग
-url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
+def get_data(symbol):
+    df = yf.download(symbol, period="5d", interval="15m", progress=False)
+    df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
+    df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
+    # RSI
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    df['RSI'] = 100 - (100 / (1 + (gain / loss)))
+    return df
 
-@st.cache_data
-def load_data(url):
-    df = pd.read_csv(url)
-    return df['Symbol'].dropna().tolist()
-
-symbols = load_data(url)
-
-# 4. स्कैन बटन
-if st.button("🔥 टॉप 20 स्टॉक्स स्कैन करें"):
-    progress_bar = st.progress(0)
+# 3. मुख्य लॉजिक
+if st.button("🚀 लाइव स्कैन शुरू करें"):
+    symbols = get_symbols()
     results = []
     
-    # डेटा डाउनलोड
-    data = yf.download(symbols, period="60d", group_by='column', threads=True)
-    
-    for i, symbol in enumerate(symbols):
-        try:
-            close_prices = data['Close'][symbol]
-            current_price = close_prices.iloc[-1]
-            prev_close = close_prices.iloc[-2]
-            sma50 = close_prices.iloc[-50:].mean()
-            volume = data['Volume'][symbol].iloc[-1]
-            
-            change = ((current_price - prev_close) / prev_close) * 100
-            
-            # कंडीशन
-            if current_price > sma50 and change > 2.0 and volume > data['Volume'][symbol].iloc[-2]:
-                results.append({
-                    'Stock': symbol, 
-                    'Price': float(current_price), 
-                    'Change %': float(change),
-                    'SMA50': float(sma50)
-                })
-            
-            progress_bar.progress((i + 1) / len(symbols))
-        except:
-            continue
-    
-    # 5. रिजल्ट डिस्प्ले
-    if results:
-        res_df = pd.DataFrame(results).sort_values(by='Change %', ascending=False).head(20)
-        st.success(f"कुल {len(results)} में से टॉप 20 स्टॉक्स मिल गए!")
+    with st.spinner('डेटा एनालाइज हो रहा है...'):
+        for symbol in symbols:
+            try:
+                df = get_data(symbol)
+                curr, prev = df.iloc[-1], df.iloc[-2]
+                
+                signal = "⚪ WAIT"
+                if prev['EMA9'] <= prev['EMA21'] and curr['EMA9'] > curr['EMA21']: signal = "🟢 BUY"
+                elif prev['EMA9'] >= prev['EMA21'] and curr['EMA9'] < curr['EMA21']: signal = "🔴 SELL"
+                
+                results.append({'Stock': symbol, 'Signal': signal, 'Price': round(float(curr['Close']), 2), 'RSI': round(float(curr['RSI']), 2)})
+            except: continue
         
-        # साफ़-सुथरी और फॉर्मेट की हुई टेबल
-        st.dataframe(
-            res_df,
-            column_config={
-                "Change %": st.column_config.NumberColumn("Change %", format="%.2f%%"),
-                "Price": st.column_config.NumberColumn("Price", format="%.2f"),
-                "SMA50": st.column_config.NumberColumn("SMA50", format="%.2f"),
-            },
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Excel डाउनलोड
-        st.download_button("📥 Excel में डाउनलोड करें", res_df.to_csv(index=False), "top_stocks.csv")
-    else:
-        st.warning("आज कोई भी स्टॉक इन शर्तों पर मैच नहीं हुआ।")
+        # 4. कलर टेबल
+        res_df = pd.DataFrame(results)
+        def style_table(val):
+            color = 'green' if val == '🟢 BUY' else 'red' if val == '🔴 SELL' else 'white'
+            return f'color: {color}; font-weight: bold'
+
+        st.dataframe(res_df.style.map(style_table, subset=['Signal']), use_container_width=True)
+
+st.sidebar.info("Intrabullscanner22 v1.0")
