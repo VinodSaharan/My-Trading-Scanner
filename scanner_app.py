@@ -4,32 +4,63 @@ import pandas as pd
 import time
 
 st.set_page_config(page_title="Intrabullscanner22", layout="wide")
-st.title("📈 Intrabullscanner22 | Robust Version")
+st.title("📈 Intrabullscanner22 | Master Scanner")
 
+# अपनी Google Sheet का URL यहाँ डालें
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
+
+def get_rsi(series, period=14):
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
 
 def scan_stocks(symbols):
     results = []
     for symbol in symbols:
+        clean_symbol = symbol.strip()
         try:
-            # 1.5 सेकंड का पॉज़ ताकि Rate Limit न हो
-            time.sleep(1.5) 
+            # सर्वर लोड कम करने के लिए पॉज़
+            time.sleep(1.0) 
             
-            # डेटा डाउनलोड
-            hist = yf.download(symbol, period="5d", interval="15m", progress=False)
+            hist = yf.download(clean_symbol, period="5d", interval="15m", progress=False)
             
-            # अगर डेटा खाली है (Delisted या गलत सिंबल), तो सीधे अगले पर जाएं
-            if hist.empty or len(hist) < 20:
-                continue
-                
-            # कैलकुलेशन
+            # डेटा चेक: खाली न हो
+            if hist.empty or len(hist) < 20: continue
+            
+            # इंडिकेटर्स
             hist['TP'] = (hist['High'] + hist['Low'] + hist['Close']) / 3
             hist['VWAP'] = (hist['TP'] * hist['Volume']).cumsum() / hist['Volume'].cumsum()
+            hist['RSI'] = get_rsi(hist['Close'])
             
-            # (आगे का वही लॉजिक...)
-            # ... (Morning Star और अन्य कंडीशन यहाँ आएं)
+            c1, c2, c3 = hist.iloc[-3], hist.iloc[-2], hist.iloc[-1]
             
-        except Exception as e:
-            # अगर कोई भी एरर आए (जैसे delist होना), तो इसे प्रिंट करें और चलते रहें
-            continue
+            # कंडीशंस
+            is_morning_star = (c1['Close'] < c1['Open']) and (c3['Close'] > c3['Open']) and (c3['Volume'] > c2['Volume'])
+            is_near_vwap = abs(c3['Close'] - c3['VWAP']) < (c3['Close'] * 0.005)
+            is_rsi_valid = 40 < float(c3['RSI']) < 70
+            
+            if is_morning_star and is_near_vwap and is_rsi_valid:
+                price = float(c3['Close'].squeeze())
+                stop_loss = float(c2['Low'].squeeze())
+                target = price + ((price - stop_loss) * 2)
+                
+                results.append({
+                    'Stock': clean_symbol, 'Price': f"{price:.2f}",
+                    'SL': f"{stop_loss:.2f}", 'Target': f"{target:.2f}"
+                })
+        except: continue
     return results
+
+# UI
+if st.button("🚀 स्कैन शुरू करें"):
+    symbols_df = pd.read_csv(SHEET_URL, header=None)
+    symbols = symbols_df.iloc[:, 0].dropna().tolist()
+    
+    with st.spinner('एनालिसिस चल रहा है...'):
+        data = scan_stocks(symbols)
+        if data:
+            st.dataframe(pd.DataFrame(data), use_container_width=True)
+        else:
+            st.warning("कोई सेटअप नहीं मिला।")
