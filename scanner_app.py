@@ -7,7 +7,7 @@ st.set_page_config(page_title="Intrabullscanner22", layout="wide")
 st.title("📈 Intrabullscanner22 | Master Terminal")
 
 # 2. यहाँ अपनी Google Sheet का CSV लिंक डालें (जो आपने पब्लिश किया है)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pubhtml" 
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv" 
 
 @st.cache_data(ttl=600)
 def get_symbols():
