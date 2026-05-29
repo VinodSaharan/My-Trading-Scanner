@@ -2,4 +2,3 @@ Plaintext
 streamlit
 yfinance
 pandas
-pandas-ta
