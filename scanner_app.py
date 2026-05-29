@@ -6,7 +6,6 @@ import pandas as pd
 # 1. पेज सेटअप
 st.set_page_config(layout="wide", page_title="Live Trading Scanner")
 st.title("🎯 Professional Cloud Trading Scanner")
-
 # 2. Google Sheet से डेटा लोड करना
 @st.cache_data(ttl=600) # डेटा हर 10 मिनट में रिफ्रेश होगा
 def get_stocks():
