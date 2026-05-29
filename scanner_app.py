@@ -16,7 +16,7 @@ st.markdown("""
 st.title("🚀 प्रो स्टॉक स्कैनर")
 
 # 3. डेटा लोडिंग
-url = "YOUR_PUBLISHED_CSV_LINK"
+url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
 @st.cache_data
 def load_data(url):
