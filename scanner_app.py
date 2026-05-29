@@ -2,10 +2,10 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-# 1. पेज सेटअप (Wide Layout)
+# 1. पेज सेटअप
 st.set_page_config(page_title="प्रो स्टॉक स्कैनर", page_icon="📈", layout="wide")
 
-# 2. कस्टमाइज़ेशन के लिए CSS
+# 2. स्टाइलिश CSS
 st.markdown("""
 <style>
     .stButton>button {width: 100%; border-radius: 10px; background-color: #2E86C1; color: white; font-weight: bold;}
@@ -43,28 +43,34 @@ if st.button("🔥 टॉप 20 स्टॉक्स स्कैन करे�
             
             change = ((current_price - prev_close) / prev_close) * 100
             
-            # कंडीशन: SMA के ऊपर + 2% से ज्यादा बढ़त + हाई वॉल्यूम
+            # कंडीशन
             if current_price > sma50 and change > 2.0 and volume > data['Volume'][symbol].iloc[-2]:
                 results.append({
                     'Stock': symbol, 
-                    'Price': round(float(current_price), 2), 
-                    'Change %': round(float(change), 2),
-                    'SMA50': round(float(sma50), 2)
+                    'Price': float(current_price), 
+                    'Change %': float(change),
+                    'SMA50': float(sma50)
                 })
             
             progress_bar.progress((i + 1) / len(symbols))
         except:
             continue
     
-    # 5. रिजल्ट और कलरफुल टेबल
+    # 5. रिजल्ट डिस्प्ले
     if results:
         res_df = pd.DataFrame(results).sort_values(by='Change %', ascending=False).head(20)
         st.success(f"कुल {len(results)} में से टॉप 20 स्टॉक्स मिल गए!")
         
-        # इंटरैक्टिव और कलरफुल टेबल
+        # साफ़-सुथरी और फॉर्मेट की हुई टेबल
         st.dataframe(
-            res_df.style.map(lambda x: 'color: green' if isinstance(x, (int, float)) and x > 0 else '', subset=['Change %']),
-            use_container_width=True
+            res_df,
+            column_config={
+                "Change %": st.column_config.NumberColumn("Change %", format="%.2f%%"),
+                "Price": st.column_config.NumberColumn("Price", format="%.2f"),
+                "SMA50": st.column_config.NumberColumn("SMA50", format="%.2f"),
+            },
+            use_container_width=True,
+            hide_index=True
         )
         
         # Excel डाउनलोड
