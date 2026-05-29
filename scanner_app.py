@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-
 # 1. पेज सेटअप - वाइड लेआउट और बड़ा UI
 st.set_page_config(page_title="Intrabullscanner22", layout="wide")
 
