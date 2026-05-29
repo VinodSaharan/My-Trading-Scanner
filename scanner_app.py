@@ -4,59 +4,54 @@ import pandas as pd
 import time
 
 st.set_page_config(page_title="Intrabullscanner22", layout="wide")
-st.title("📈 Intrabullscanner22 | Stable Pro")
+st.title("📈 Intrabullscanner22 | Live Auto-Refresh")
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
-@st.cache_data(ttl=600)
-def get_symbols():
-    try:
-        df = pd.read_csv(SHEET_URL, header=None)
-        return [str(s).strip() + '.NS' if '.NS' not in str(s) else str(s).strip() for s in df.iloc[:, 0].dropna().tolist()]
-    except:
-        return ['RELIANCE.NS', 'TCS.NS']
 
-def get_data(symbol):
-    try:
-        df = yf.download(symbol, period="1mo", interval="15m", progress=False)
-        if df.empty or len(df) < 21: return None
-        
-        # EMA कैलकुलेशन
-        df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
-        df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
-        return df
-    except:
-        return None
-
-if st.button("🚀 स्कैन शुरू करें"):
-    symbols = get_symbols()
+@st.cache_data(ttl=60) # डेटा को 60 सेकंड में रिफ्रेश करें
+def get_data_for_all(symbols):
     results = []
-    progress_bar = st.progress(0)
-    
-    with st.spinner('डेटा प्रोसेस हो रहा है...'):
-        for i, symbol in enumerate(symbols):
-            df = get_data(symbol)
-            if df is not None:
-                try:
-                    # .iloc[-1] के बाद .squeeze() का उपयोग किया है, जो किसी भी फॉर्मेट (Series/Array) को सीधे नंबर बना देता है
-                    curr_price = float(df['Close'].iloc[-1].squeeze())
-                    curr_e9 = float(df['EMA9'].iloc[-1].squeeze())
-                    curr_e21 = float(df['EMA21'].iloc[-1].squeeze())
-                    prev_e9 = float(df['EMA9'].iloc[-2].squeeze())
-                    prev_e21 = float(df['EMA21'].iloc[-2].squeeze())
-                    
-                    signal = "⚪"
-                    if prev_e9 <= prev_e21 and curr_e9 > curr_e21: signal = "🟢 BUY"
-                    elif prev_e9 >= prev_e21 and curr_e9 < curr_e21: signal = "🔴 SELL"
-                    
-                    if signal != "⚪":
-                        results.append({'Stock': symbol, 'Signal': signal, 'Price': round(curr_price, 2)})
-                except Exception:
-                    continue
-            
-            time.sleep(1) # सर्वर को ब्लॉक होने से बचाने के लिए
-            progress_bar.progress((i + 1) / len(symbols))
-        
+    tickers = yf.Tickers(" ".join(symbols))
+    for symbol in symbols:
+        try:
+            hist = tickers.tickers[symbol].history(period="1mo", interval="15m")
+            if len(hist) > 21:
+                hist['EMA9'] = hist['Close'].ewm(span=9, adjust=False).mean()
+                hist['EMA21'] = hist['Close'].ewm(span=21, adjust=False).mean()
+                
+                curr_p = float(hist['Close'].iloc[-1].squeeze())
+                prev_p = float(hist['Close'].iloc[-2].squeeze())
+                curr_e9 = float(hist['EMA9'].iloc[-1].squeeze())
+                curr_e21 = float(hist['EMA21'].iloc[-1].squeeze())
+                prev_e9 = float(hist['EMA9'].iloc[-2].squeeze())
+                prev_e21 = float(hist['EMA21'].iloc[-2].squeeze())
+                
+                change_pct = ((curr_p - prev_p) / prev_p) * 100
+                
+                if (prev_e9 <= prev_e21 and curr_e9 > curr_e21) or (prev_e9 >= prev_e21 and curr_e9 < curr_e21):
+                    signal = "🟢 BUY" if curr_e9 > curr_e21 else "🔴 SELL"
+                    results.append({
+                        'Stock': symbol, 'Signal': signal, 
+                        'Price': f"{curr_p:.2f}", 'Change %': f"{change_pct:.2f}%"
+                    })
+        except: continue
+    return results
+
+# मुख्य लूप
+symbols_df = pd.read_csv(SHEET_URL, header=None)
+symbols = [str(s).strip() + '.NS' if '.NS' not in str(s) else str(s).strip() for s in symbols_df.iloc[:, 0].dropna().tolist()]
+
+placeholder = st.empty()
+
+# ऑटो-रिफ्रेश लूप
+while True:
+    with placeholder.container():
+        results = get_data_for_all(symbols)
         if results:
             st.dataframe(pd.DataFrame(results), use_container_width=True)
         else:
-            st.warning("फिलहाल किसी स्टॉक में सिग्नल नहीं है।")
+            st.info("कोई सिग्नल नहीं। रिफ्रेश हो रहा है...")
+        st.write(f"अंतिम अपडेट: {time.strftime('%H:%M:%S')}")
+    
+    time.sleep(60) # 60 सेकंड का इंतज़ार
+    st.rerun()
