@@ -1,50 +1,63 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import time
 
-st.set_page_config(page_title="VWAP Scanner", layout="wide")
-st.title("📈 VWAP Crossover Scanner")
+st.set_page_config(page_title="VWAP + ST Scanner", layout="wide")
+st.title("🚀 VWAP + SuperTrend | Batch Scanner (25 Stocks/Batch)")
 
+# अपनी Google Sheet का URL यहाँ डालें
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
-def scan_stocks(symbols):
+def get_supertrend(hist, period=10, multiplier=3):
+    hl2 = (hist['High'] + hist['Low']) / 2
+    atr = hist['High'].rolling(period).max() - hist['Low'].rolling(period).min()
+    hist['Upper'] = hl2 + (multiplier * atr)
+    return hist
+
+def scan_batch(symbols):
     results = []
     for symbol in symbols:
         try:
-            # डेटा डाउनलोड
-            hist = yf.download(symbol, period="2d", interval="15m", progress=False)
+            # 5-सेकंड टाइमआउट के साथ डेटा डाउनलोड
+            hist = yf.download(symbol, period="2d", interval="15m", progress=False, timeout=5)
+            if isinstance(hist.columns, pd.MultiIndex): hist.columns = hist.columns.get_level_values(0)
+            if len(hist) < 20: continue
             
-            # मल्टी-कॉलम एरर को फिक्स करने के लिए:
-            if isinstance(hist.columns, pd.MultiIndex):
-                hist.columns = hist.columns.get_level_values(0)
-            
-            if len(hist) < 2: continue
-            
-            # VWAP कैलकुलेशन (अब यह मल्टी-इंडेक्स से परेशान नहीं होगा)
+            # VWAP Calculation
             tp = (hist['High'] + hist['Low'] + hist['Close']) / 3
-            volume = hist['Volume']
-            hist['VWAP'] = (tp * volume).cumsum() / volume.cumsum()
+            hist['VWAP'] = (tp * hist['Volume']).cumsum() / hist['Volume'].cumsum()
             
-            # Crossover लॉजिक
-            prev_close = hist['Close'].iloc[-2]
-            prev_vwap = hist['VWAP'].iloc[-2]
-            curr_close = hist['Close'].iloc[-1]
-            curr_vwap = hist['VWAP'].iloc[-1]
+            # SuperTrend Calculation
+            hist = get_supertrend(hist)
             
-            if prev_close < prev_vwap and curr_close > curr_vwap:
-                results.append({'Stock': symbol, 'Price': f"{float(curr_close):.2f}", 'Signal': 'VWAP Breakout'})
-        except Exception as e:
-            continue
+            # Entry Logic: प्राइस VWAP और SuperTrend दोनों के ऊपर होनी चाहिए
+            last = hist.iloc[-1]
+            if last['Close'] > last['VWAP'] and last['Close'] > last['Upper']:
+                results.append({
+                    'Stock': symbol, 
+                    'Price': f"{last['Close']:.2f}", 
+                    'Signal': 'BULLISH'
+                })
+        except: continue
     return results
 
-if st.button("🚀 स्कैन शुरू करें"):
+if st.button("🚀 25-25 के बैच में स्कैन शुरू करें"):
     try:
         symbols_df = pd.read_csv(SHEET_URL, header=None)
         all_symbols = symbols_df.iloc[:, 0].dropna().tolist()
-        data = scan_stocks(all_symbols)
-        if data:
-            st.dataframe(pd.DataFrame(data), use_container_width=True)
-        else:
-            st.warning("अभी कोई ब्रेकआउट नहीं मिला।")
+        
+        chunk_size = 25
+        for i in range(0, len(all_symbols), chunk_size):
+            batch = all_symbols[i:i + chunk_size]
+            st.write(f"🔄 **बैच {i//chunk_size + 1} स्कैन हो रहा है...**")
+            
+            data = scan_batch(batch)
+            if data:
+                st.dataframe(pd.DataFrame(data), use_container_width=True)
+            
+            # Yahoo सर्वर के लिए ब्रेक
+            time.sleep(2) 
+            
     except Exception as e:
-        st.error(f"शीट पढ़ने में दिक्कत: {e}")
+        st.error(f"शीट में गड़बड़ है: {e}")
