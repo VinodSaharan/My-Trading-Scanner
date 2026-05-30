@@ -56,7 +56,7 @@ if st.button("🔍 मार्केट स्कैन करें", type="pr
         
         if results:
             df = pd.DataFrame(results)
-            st.dataframe(df.style.applymap(highlight_signals, subset=['Signal']), use_container_width=True)
+            st.dataframe(df.style.map(highlight_signals, subset=['Signal']), use_container_width=True)
         else:
             st.info("अभी कोई ट्रेड सेटअप नहीं मिला।")
     except Exception as e:
