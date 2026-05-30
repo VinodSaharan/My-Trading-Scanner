@@ -4,14 +4,10 @@ import pandas as pd
 import time
 
 st.set_page_config(page_title="Intrabullscanner22", layout="wide")
-st.title("📈 Intrabullscanner22 | Master Scanner (Caching Enabled)")
+st.title("📈 Intrabullscanner22 | Stable Engine")
 
+# Google Sheet URL
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
-
-# 1. Caching: डेटा को 1 घंटे तक सेव रखेगा (Rate Limit एरर को खत्म करेगा)
-@st.cache_data(ttl=3600)
-def fetch_data(symbol):
-    return yf.download(symbol, period="5d", interval="15m", progress=False)
 
 def get_rsi(series, period=14):
     delta = series.diff()
@@ -20,47 +16,50 @@ def get_rsi(series, period=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-def scan_batch(symbols):
+def scan_stocks(symbols):
     results = []
-    for symbol in symbols:
+    # प्रोग्रेस बार जो दिखाई देगा कि कितना काम हुआ
+    progress_bar = st.progress(0)
+    
+    for idx, symbol in enumerate(symbols):
         try:
-            hist = fetch_data(symbol)
-            if hist is None or hist.empty or len(hist) < 20: continue
+            # 1. 10 सेकंड का टाइमआउट (अगर Yahoo नहीं जवाब दे रहा तो रुकना नहीं है)
+            hist = yf.download(symbol, period="5d", interval="15m", progress=False, timeout=10)
             
-            # इंडिकेटर्स
+            if hist.empty or len(hist) < 20: continue
+            
+            # 2. इंडिकेटर्स कैलकुलेशन
             hist['TP'] = (hist['High'] + hist['Low'] + hist['Close']) / 3
             hist['VWAP'] = (hist['TP'] * hist['Volume']).cumsum() / hist['Volume'].cumsum()
             hist['RSI'] = get_rsi(hist['Close'])
             
             c1, c2, c3 = hist.iloc[-3], hist.iloc[-2], hist.iloc[-1]
             
-            # स्ट्रेटेजी कंडीशन
+            # 3. स्ट्रेटेजी लॉजिक
             is_morning_star = (c1['Close'] < c1['Open']) and (c3['Close'] > c3['Open']) and (c3['Volume'] > c2['Volume'])
             is_near_vwap = abs(c3['Close'] - c3['VWAP']) < (c3['Close'] * 0.005)
-            is_rsi_valid = 40 < float(c3['RSI']) < 70
             
-            if is_morning_star and is_near_vwap and is_rsi_valid:
-                results.append({
-                    'Stock': symbol, 
-                    'Price': f"{float(c3['Close']):.2f}",
-                    'SL': f"{float(c2['Low']):.2f}",
-                    'Target': f"{float(c3['Close']) + (float(c3['Close'] - c2['Low']) * 2):.2f}"
-                })
-        except: continue
+            if is_morning_star and is_near_vwap:
+                results.append({'Stock': symbol, 'Price': f"{c3['Close']:.2f}", 'SL': f"{c2['Low']:.2f}"})
+            
+            # प्रोग्रेस अपडेट
+            progress_bar.progress((idx + 1) / len(symbols))
+            
+        except Exception as e:
+            continue
     return results
 
-# UI: स्कैनिंग
 if st.button("🚀 सुरक्षित स्कैन शुरू करें"):
-    symbols_df = pd.read_csv(SHEET_URL, header=None)
-    all_symbols = symbols_df.iloc[:, 0].dropna().tolist()
-    
-    chunk_size = 10
-    for i in range(0, len(all_symbols), chunk_size):
-        batch = all_symbols[i:i + chunk_size]
-        st.write(f"🔄 बैच {i//chunk_size + 1} स्कैन हो रहा है...")
+    try:
+        symbols_df = pd.read_csv(SHEET_URL, header=None)
+        all_symbols = symbols_df.iloc[:, 0].dropna().tolist()
         
-        data = scan_batch(batch)
+        st.write(f"कुल {len(all_symbols)} स्टॉक्स की जांच हो रही है...")
+        data = scan_stocks(all_symbols)
+        
         if data:
-            st.dataframe(pd.DataFrame(data), use_container_width=True)
-        
-        time.sleep(1) # हल्का ब्रेक
+            st.dataframe(pd.DataFrame(data))
+        else:
+            st.warning("कोई सेटअप नहीं मिला।")
+    except Exception as e:
+        st.error(f"शीट पढ़ने में दिक्कत: {e}")
