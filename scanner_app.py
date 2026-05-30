@@ -4,7 +4,7 @@ import pandas as pd
 import time # जरूरी लाइब्रेरी
 
 st.set_page_config(page_title="Pro 1000 Scanner", layout="wide")
-st.title("⚡ प्रो-1000 गोल्डन स्कैनर")
+st.title("🔎 प्रो-1000 गोल्डन स्कैनर")
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
