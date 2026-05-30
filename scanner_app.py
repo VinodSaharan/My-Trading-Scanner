@@ -54,7 +54,7 @@ if st.button("🚀 सुरक्षित स्कैन शुरू कर�
     symbols_df = pd.read_csv(SHEET_URL, header=None)
     all_symbols = symbols_df.iloc[:, 0].dropna().tolist()
     
-    chunk_size = 25
+    chunk_size = 10
     for i in range(0, len(all_symbols), chunk_size):
         batch = all_symbols[i:i + chunk_size]
         st.write(f"🔄 बैच {i//chunk_size + 1} स्कैन हो रहा है...")
@@ -63,4 +63,4 @@ if st.button("🚀 सुरक्षित स्कैन शुरू कर�
         if data:
             st.dataframe(pd.DataFrame(data), use_container_width=True)
         
-        time.sleep(5) # हल्का ब्रेक
+        time.sleep(1) # हल्का ब्रेक
