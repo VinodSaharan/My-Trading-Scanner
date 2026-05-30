@@ -6,7 +6,7 @@ st.set_page_config(page_title="Golden Combo Pro-Scanner", layout="wide")
 st.title("🚀 गोल्डन कॉम्बो प्रो-स्कैनर")
 
 # अपना Google Sheet लिंक यहाँ डालें
-SHEET_URL = "YOUR_GOOGLE_SHEET_CSV_LINK_HERE"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
 def get_indicators(hist):
     delta = hist['Close'].diff()
