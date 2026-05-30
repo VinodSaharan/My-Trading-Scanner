@@ -1,11 +1,11 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import time # जरूरी लाइब्रेरी
 
-st.set_page_config(page_title="Golden Combo Pro-Scanner", layout="wide")
-st.title("🚀 गोल्डन कॉम्बो प्रो-स्कैनर")
+st.set_page_config(page_title="Pro 1000 Scanner", layout="wide")
+st.title("🚀 प्रो-1000 गोल्डन स्कैनर")
 
-# अपना Google Sheet लिंक यहाँ डालें
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
 def get_indicators(hist):
@@ -24,56 +24,53 @@ def get_indicators(hist):
     hist['BB_Lower'] = hist['BB_Mid'] - (hist['BB_Std'] * 2)
     return hist
 
-def highlight_signals(val):
-    if 'BUY' in val: return 'background-color: #006400; color: white'
-    if 'SELL' in val: return 'background-color: #8B0000; color: white'
-    return ''
-
 def make_clickable(symbol):
-    # चार्ट के लिए NSE:PREFIX जोड़ना ज़रूरी है
     clean_symbol = symbol.replace(".NS", "")
     url = f"https://www.tradingview.com/chart/?symbol=NSE:{clean_symbol}"
     return f'<a target="_blank" href="{url}" style="color: blue;">{clean_symbol}</a>'
 
-if st.button("🔍 मार्केट स्कैन करें", type="primary"):
+if st.button("🔍 1000 स्टॉक्स स्कैन करें", type="primary"):
     try:
         symbols_df = pd.read_csv(SHEET_URL, header=None)
         raw_symbols = symbols_df.iloc[:, 0].dropna().tolist()
-        # .NS जोड़ना ताकि yfinance डेटा उठा सके
         all_symbols = [f"{s}.NS" if not s.endswith(".NS") else s for s in raw_symbols]
         
         results = []
+        progress_bar = st.progress(0)
         status_text = st.empty()
         
         for i, symbol in enumerate(all_symbols):
-            status_text.text(f"स्कैनिंग: {i+1}/{len(all_symbols)} - {symbol}")
+            # प्रगति दिखाएं
+            progress = (i + 1) / len(all_symbols)
+            progress_bar.progress(progress)
+            status_text.text(f"स्कैनिंग ({i+1}/{len(all_symbols)}): {symbol}")
+            
             try:
-                hist = yf.download(symbol, period="2y", interval="1d", progress=False, timeout=5)
+                hist = yf.download(symbol, period="2y", interval="1d", progress=False, timeout=5, auto_adjust=True)
                 if isinstance(hist.columns, pd.MultiIndex): hist.columns = hist.columns.get_level_values(0)
                 hist = get_indicators(hist)
                 
                 last = hist.iloc[-1]
-                signal = ""
                 
                 # गोल्डन कॉम्बो लॉजिक
                 if (last['RSI'] < 30) and (last['Close'] > last['EMA_200']) and (last['Close'] <= last['BB_Lower']):
-                    signal = '⚡ GOLDEN BUY 🟢'
+                    results.append({'Stock': symbol, 'Price': f"{last['Close']:.2f}", 'Signal': '⚡ GOLDEN BUY 🟢'})
                 elif (last['RSI'] > 70) and (last['Close'] < last['EMA_200']) and (last['Close'] >= last['BB_Upper']):
-                    signal = '🔥 GOLDEN SELL 🔴'
+                    results.append({'Stock': symbol, 'Price': f"{last['Close']:.2f}", 'Signal': '🔥 GOLDEN SELL 🔴'})
                 
-                if signal:
-                    results.append({'Stock': symbol, 'Price': f"{last['Close']:.2f}", 'RSI': f"{last['RSI']:.1f}", 'Signal': signal})
+                # 1000 स्टॉक्स के लिए सर्वर को सांस लेने का समय दें
+                time.sleep(0.1) 
+                
             except: continue
         
         status_text.text("स्कैन पूरा हुआ!")
         
         if results:
             df = pd.DataFrame(results)
-            # स्टॉक कॉलम को लिंक में बदलें
             df['Stock'] = df['Stock'].apply(make_clickable)
-            # HTML रेंडरिंग
             st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
         else:
-            st.info("अभी कोई गोल्डन सेटअप नहीं मिला।")
+            st.info("कोई सेटअप नहीं मिला।")
+            
     except Exception as e:
         st.error(f"एरर: {e}")
