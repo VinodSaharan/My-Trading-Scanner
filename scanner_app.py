@@ -22,7 +22,7 @@ def scan_stocks(symbols):
         clean_symbol = str(symbol).strip()
         try:
             # सर्वर एरर (Rate Limit) से बचने के लिए पॉज़
-            time.sleep(1.5) 
+            time.sleep(5) 
             hist = yf.download(clean_symbol, period="5d", interval="15m", progress=False)
             
             if hist.empty or len(hist) < 20: continue
