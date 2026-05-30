@@ -20,7 +20,7 @@ def scan_batch(symbols):
     for symbol in symbols:
         try:
             # हर स्टॉक के लिए छोटा ब्रेक ताकि Yahoo ब्लॉक न करे
-            time.sleep(1.0) 
+            time.sleep(5.0) 
             hist = yf.download(symbol, period="5d", interval="15m", progress=False)
             
             if hist.empty or len(hist) < 20: continue
@@ -45,8 +45,8 @@ if st.button("🚀 सुरक्षित बैच स्कैन शुर�
     symbols_df = pd.read_csv(SHEET_URL, header=None)
     all_symbols = symbols_df.iloc[:, 0].dropna().tolist()
     
-    # 10-10 के ग्रुप में बांटना
-    chunk_size = 10
+    # 25-25 के ग्रुप में बांटना
+    chunk_size = 25
     for i in range(0, len(all_symbols), chunk_size):
         chunk = all_symbols[i:i + chunk_size]
         st.write(f"🔄 बैच {i//chunk_size + 1} स्कैन हो रहा है ({len(chunk)} स्टॉक्स)...")
@@ -58,4 +58,4 @@ if st.button("🚀 सुरक्षित बैच स्कैन शुर�
             st.info(f"बैच {i//chunk_size + 1} में कोई सेटअप नहीं मिला।")
         
         # हर बैच के बाद बड़ा ब्रेक ताकि सर्वर पूरी तरह रिफ्रेश हो जाए
-        time.sleep(3)
+        time.sleep(5)
