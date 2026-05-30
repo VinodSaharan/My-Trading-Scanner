@@ -2,43 +2,51 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-st.set_page_config(page_title="Professional Stock Scanner", layout="wide")
-st.title("📈 प्रो स्टॉक स्कैनर (Sheet Connected)")
+st.set_page_config(page_title="Pro Stock Scanner", layout="wide")
+st.title("🚀 एडवांस्ड स्टॉक स्कैनर (RSI + Filter)")
 
-# यहाँ अपना 'Publish to Web' वाला CSV लिंक डालें
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpVHs0moYjed1jNIJT64sMjDkZSCa1BAAIynZqh3uodODA06TJ37f-znybktZasqhnZD8t09BTJcyr/pub?output=csv"
 
-if st.button("🚀 शीट से पूरी लिस्ट स्कैन करें"):
+# RSI कैलकुलेशन फंक्शन
+def get_rsi(hist, period=14):
+    delta = hist['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+if st.button("🚀 RSI फिल्टर के साथ स्कैन शुरू करें"):
     try:
-        # 1. Google Sheet से डेटा पढ़ें
         symbols_df = pd.read_csv(SHEET_URL, header=None)
         all_symbols = symbols_df.iloc[:, 0].dropna().tolist()
-        st.write(f"कुल {len(all_symbols)} स्टॉक्स मिल गए। स्कैनिंग शुरू...")
-
-        results = []
-        for symbol in all_symbols:
-            try:
-                # 2. डेटा डाउनलोड करें
-                hist = yf.download(symbol, period="1d", interval="15m", progress=False, timeout=5)
-                
-                # मल्टी-इंडेक्स फिक्स
-                if isinstance(hist.columns, pd.MultiIndex):
-                    hist.columns = hist.columns.get_level_values(0)
-                
-                if not hist.empty:
-                    last_price = hist['Close'].iloc[-1]
-                    if isinstance(last_price, pd.Series):
-                        last_price = last_price.iloc[0]
-                    
-                    results.append({'Stock': symbol, 'Price': f"{float(last_price):.2f}"})
-            except Exception:
-                continue
         
-        # 3. रिजल्ट दिखाएं
+        results = []
+        progress_bar = st.progress(0) # 1. प्रोग्रेस बार
+        
+        for i, symbol in enumerate(all_symbols):
+            try:
+                hist = yf.download(symbol, period="1mo", interval="1d", progress=False, timeout=5)
+                if isinstance(hist.columns, pd.MultiIndex): hist.columns = hist.columns.get_level_values(0)
+                
+                if len(hist) > 14:
+                    # RSI कैलकुलेशन
+                    hist['RSI'] = get_rsi(hist)
+                    last_rsi = hist['RSI'].iloc[-1]
+                    last_price = hist['Close'].iloc[-1]
+                    
+                    # 2. फिल्टर: केवल वही स्टॉक दिखाएं जिनका RSI < 30 (Oversold) या > 70 (Overbought)
+                    # यहाँ आप अपनी पसंद का फिल्टर लगा सकते हैं
+                    if last_rsi < 30: # 'Buy' सिग्नल (Oversold)
+                        results.append({'Stock': symbol, 'Price': f"{float(last_price):.2f}", 'RSI': f"{float(last_rsi):.2f}", 'Signal': 'BUY (Oversold)'})
+            except: continue
+            
+            # प्रोग्रेस बार अपडेट करें
+            progress_bar.progress((i + 1) / len(all_symbols))
+            
         if results:
             st.dataframe(pd.DataFrame(results), use_container_width=True)
         else:
-            st.warning("कोई डेटा नहीं मिला। लिंक और सिंबल चेक करें।")
+            st.warning("कोई स्टॉक इस RSI फिल्टर में फिट नहीं बैठा।")
             
     except Exception as e:
-        st.error(f"शीट में गड़बड़ है: {e}")
+        st.error(f"एरर: {e}")
